@@ -1,6 +1,8 @@
 # cn
 
-A handle little utility to give you the index (1-based) of a label/column name in a header of a CSV.
+Usage: `cn [-d] LABEL FILE`
+
+A handle little utility to give you the index (1-based) of a label/column name in a header of a CSV. Using the `-d` flag, only the data under the label/column name is returned.
 
 For example:
 
@@ -13,6 +15,11 @@ a,b,c
 
 $ cn b data.csv
 2
+
+$ cn -d b data.csv
+0
+1
+0
 ```
 
 You can also use stdin:
@@ -20,6 +27,24 @@ You can also use stdin:
 ```
 $ cat data.csv | cn b -
 2
+
+$ cat data.csv | cn -d b -
+0
+1
+0
+```
+
+This works well with other tools, e.g.:
+
+```
+$ cat data2.csv
+a,b,c
+1,2,3
+4,5,6
+7,8,9
+
+$ cat data2.csv | cn -d b - | awk -F, '{s+=$1}END{print s}'
+15
 ```
 
 ## Installation
@@ -30,3 +55,11 @@ You can install easily with homebrew:
 brew tap jefferickson/cn
 brew install cn
 ```
+
+Or from source:
+
+```
+go get github.com/jefferickson/cn
+go install github.com/jefferickson/cn
+```
+
