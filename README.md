@@ -7,7 +7,7 @@ A handle little utility to give you the index (1-based) of a label/column name i
 For example:
 
 ```
-$ echo data.csv
+$ cat data.csv
 a,b,c
 1,0,0
 0,1,0
