@@ -2,51 +2,72 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
 )
 
-var args []string
-var printData = false
+var args config
 
-type cache []string
+type config struct {
+	d          bool
+	headerFile string
+	label      string
+	dataFile   string
+	delim      string
+}
+
+type cache struct {
+	data   []string
+	header string
+}
 
 func init() {
-	const usageText = "USAGE: cn [-d] LABEL FILE"
+	d := flag.Bool("d", false, "Print the data in the column instead of the index")
+	headerFile := flag.String("h", "", "File to use for header")
+	delim := flag.String("delim", ",", "Delimiter")
 
-	args = os.Args[1:]
-	if len(args) < 2 || len(args) > 3 {
-		fmt.Println(usageText)
+	flag.Parse()
+
+	tail := flag.Args()
+	if len(tail) != 2 {
+		fmt.Println("cn: A tool to find the index (1-based) of a header in a CSV or data in a CSV based on the header.\n")
+		fmt.Println("Usage:\n\n\tcn [flags] label datafile\n")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
 		os.Exit(1)
-	} else if len(args) == 3 && args[0] != "-d" {
-		fmt.Println(usageText)
-		os.Exit(1)
-	} else if len(args) == 3 {
-		printData = true
-		args = args[1:]
+	}
+
+	args = config{
+		d:          *d,
+		headerFile: *headerFile,
+		label:      tail[0],
+		dataFile:   tail[1],
+		delim:      *delim,
+	}
+
+	if args.headerFile == args.dataFile {
+		args.headerFile = ""
 	}
 }
 
 func main() {
 	var fileCache cache
 
-	err := fileCache.readData(args[1], !printData)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	} else if len(fileCache) == 0 {
+	fileCache.fillCache(args.dataFile, args.headerFile)
+	if len(fileCache.header) == 0 {
 		os.Exit(1)
 	}
 
-	value, ok := findNumber(fileCache[0], args[0], ",")
+	value, ok := findNumber(fileCache.header, args.label, args.delim)
 	if !ok {
 		os.Exit(1)
 	}
 
-	if printData {
-		for _, row := range fileCache[1:] {
-			if cell := extractCol(row, value, ","); cell != "" {
+	if args.d {
+		for _, row := range fileCache.data {
+			if cell := extractCol(row, value, args.delim); cell != "" {
 				fmt.Println(cell)
 			}
 		}
@@ -55,11 +76,44 @@ func main() {
 	}
 }
 
-func (c *cache) readData(fileName string, firstRowOnly bool) error {
-	var scanner *bufio.Scanner
+func (c *cache) fillCache(dataFile string, headerFile string) {
+	// if we already have our data, return
+	if len(c.data) != 0 && len(c.header) != 0 {
+		return
+	}
 
-	if len(*c) != 0 {
-		return nil
+	// data first
+	if dataFile != "" {
+		data, err := readData(dataFile, !args.d)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		c.data = data
+	}
+
+	// then the header
+	if headerFile == "" {
+		c.header = c.data[0]
+		c.data = c.data[1:]
+	} else {
+		data, err := readData(headerFile, true)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		c.header = data[0]
+	}
+
+	return
+}
+
+func readData(fileName string, firstRowOnly bool) ([]string, error) {
+	var scanner *bufio.Scanner
+	var result []string
+
+	if fileName == "" {
+		return nil, nil
 	}
 
 	if fileName == "-" {
@@ -67,7 +121,7 @@ func (c *cache) readData(fileName string, firstRowOnly bool) error {
 	} else {
 		file, err := os.Open(fileName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer file.Close()
 
@@ -75,13 +129,17 @@ func (c *cache) readData(fileName string, firstRowOnly bool) error {
 	}
 
 	for scanner.Scan() {
-		*c = append(*c, scanner.Text())
+		result = append(result, scanner.Text())
 		if firstRowOnly {
-			return scanner.Err()
+			return result, scanner.Err()
 		}
 	}
 
-	return scanner.Err()
+	if len(result) == 0 {
+		return nil, fmt.Errorf("file %s is empty", fileName)
+	}
+
+	return result, scanner.Err()
 }
 
 func findNumber(rowData string, label string, delim string) (int, bool) {
