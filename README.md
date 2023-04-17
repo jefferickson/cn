@@ -1,3 +1,9 @@
+# DEPRECATION NOTICE
+
+I recently discovered the tool Miller (https://github.com/johnkerl/miller) and believe it to be a better tool for this job. It does what `cn` set out to accomplish and so much more. Therefore I am archiving this project and removing the Homebrew tap.
+
+----------------
+
 # cn
 
 Usage: `cn [-d] [-h HEADERFILE] LABEL FILE`
